@@ -49,6 +49,7 @@ class User(BaseModel):
     username: str = Field(max_length=100)
     email: EmailStr = Field(max_length=100)
     avatar: str | None = Field(default=None, max_length=255)
+    role: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +58,7 @@ class UserCreate(BaseModel):
     username: str = Field(max_length=100)
     email: EmailStr = Field(max_length=100)
     password: str
+    role: str
 
 
 class Token(BaseModel):

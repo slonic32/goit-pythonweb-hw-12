@@ -54,7 +54,7 @@ class User(Base):
     confirmed = Column(Boolean, default=False)
     refresh_token = Column(String(255), nullable=True)
     role = Column(
-        SqlEnum(UserRole, name="userrole"),
-        default=UserRole.USER,
+        String(20),
+        default="user",
         nullable=False,
     )

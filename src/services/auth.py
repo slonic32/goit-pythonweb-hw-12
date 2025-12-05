@@ -14,6 +14,11 @@ from jose import JWTError, jwt
 from src.database.db import get_db
 from src.conf.config import settings
 from src.services.users import UserService
+from src.database.models import User
+
+from src.services.redis import redis_client, CachedObject
+
+import json
 
 
 class Hash:
@@ -87,10 +92,36 @@ async def get_current_user(
     except JWTError as e:
         raise credentials_exception
 
+    # try redis
+    cache_key = f"user:{username}"
+    cached_user = redis_client.get(cache_key)
+
+    if cached_user is not None:
+
+        user_data = json.loads(cached_user)
+        return CachedObject(**user_data)
+
+    # not in redis
+
     user_service = UserService(db)
     user = await user_service.get_user_by_username(username)
     if user is None:
         raise credentials_exception
+
+    user_dict = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "avatar": user.avatar,
+        "confirmed": user.confirmed,
+        "role": user.role,
+        "refresh_token": user.refresh_token,
+    }
+
+    redis_client.set(cache_key, json.dumps(user_dict))
+
+    redis_client.expire(cache_key, settings.JWT_EXPIRATION_SECONDS)
+
     return user
 
 
@@ -138,3 +169,9 @@ async def verify_refresh_token(refresh_token: str, db: Session = Depends(get_db)
         return user
     except JWTError:
         return None
+
+
+async def get_current_admin_user(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Insufficient access rights")
+    return current_user
