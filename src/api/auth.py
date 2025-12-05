@@ -1,7 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
-from src.schemas import UserCreate, Token, User, RequestEmail, TokenRefreshRequest
+from src.schemas import (
+    UserCreate,
+    Token,
+    User,
+    RequestEmail,
+    TokenRefreshRequest,
+    RequestPasswordReset,
+    ResetPassword,
+)
 from src.services.auth import (
     create_access_token,
     Hash,
@@ -12,7 +20,7 @@ from src.services.auth import (
 from src.services.users import UserService
 from src.database.db import get_db
 
-from src.services.email import send_email
+from src.services.email import send_email, send_reset_password_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -127,3 +135,49 @@ async def new_token(request: TokenRefreshRequest, db: Session = Depends(get_db))
         "refresh_token": request.refresh_token,
         "token_type": "bearer",
     }
+
+
+@router.post("/request_password_reset")
+async def request_password_reset(
+    body: RequestPasswordReset,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user_service = UserService(db)
+    user = await user_service.get_user_by_email(body.email)
+
+    if user:
+        background_tasks.add_task(
+            send_reset_password_email, user.email, user.username, request.base_url
+        )
+
+    return {"message": "A reset link has been sent"}
+
+
+@router.post("/reset_password")
+async def reset_password(
+    data: ResetPassword,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        email = await get_email_from_token(token)
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired token",
+        )
+
+    user_service = UserService(db)
+    user = await user_service.get_user_by_email(email)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User not found",
+        )
+
+    hashed_password = Hash().get_password_hash(data.password)
+    await user_service.update_password(email, hashed_password)
+
+    return {"message": "Password has been successfully reset"}

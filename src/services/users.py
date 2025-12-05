@@ -33,3 +33,6 @@ class UserService:
 
     async def confirmed_email(self, email: str):
         return await self.repository.confirmed_email(email)
+
+    async def update_password(self, email: str, hashed_password: str):
+        return await self.repository.update_password(email, hashed_password)

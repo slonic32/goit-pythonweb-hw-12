@@ -46,3 +46,16 @@ class UserRepository:
         user = await self.get_user_by_email(email)
         user.confirmed = True
         await self.db.commit()
+
+    async def update_password(self, email: str, hashed_password: str) -> User | None:
+        user = await self.get_user_by_email(email)
+        if not user:
+            return None
+
+        user.hashed_password = hashed_password
+
+        user.refresh_token = None
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
