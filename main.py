@@ -1,3 +1,9 @@
+"""Entry point of the Notebook API application.
+
+This module creates the FastAPI application instance, configures middleware,
+exception handlers and includes all API routers.
+"""
+
 from fastapi import FastAPI, Request, status
 
 from src.api import contacts, utils, auth, users
@@ -12,6 +18,11 @@ app = FastAPI()
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Handle too many requests for rate-limited endpoints.
+
+    Returns a JSON error with HTTP 429 status code when the client exceeds
+    the configured rate limit.
+    """
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={"error": "Too many connections. Try later."},

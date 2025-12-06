@@ -1,3 +1,9 @@
+"""Authentication and authorization API routes.
+
+Provides endpoints for user registration, login, email confirmation,
+token refresh and password reset.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
@@ -32,6 +38,14 @@ async def register_user(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Register a new user and send a confirmation email.
+
+    The user is created in the database and an email with a verification
+    link is sent in the background.
+
+    :raises HTTPException: 409 if email or username is already used.
+    :return: Created user.
+    """
     user_service = UserService(db)
 
     email_user = await user_service.get_user_by_email(user_data.email)
@@ -59,6 +73,11 @@ async def register_user(
 async def login_user(
     form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
+    """Authenticate user and return access and refresh tokens.
+
+    :raises HTTPException: 401 if credentials are invalid or email is not confirmed.
+    :return: JWT token pair.
+    """
     user_service = UserService(db)
     user = await user_service.get_user_by_username(form_data.username)
     if not user or not Hash().verify_password(form_data.password, user.hashed_password):
@@ -87,6 +106,12 @@ async def login_user(
 
 @router.get("/confirmed_email/{token}")
 async def confirmed_email(token: str, db: Session = Depends(get_db)):
+    """Confirm user email using a verification token.
+
+    :param token: Email verification token from the confirmation link.
+    :raises HTTPException: 400 if user is not found or token is invalid.
+    :return: Message about email confirmation status.
+    """
     email = await get_email_from_token(token)
     user_service = UserService(db)
     user = await user_service.get_user_by_email(email)
@@ -107,6 +132,11 @@ async def request_email(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Request a new email confirmation link.
+
+    If the user exists and is not confirmed, a new confirmation email
+    will be sent in the background.
+    """
     user_service = UserService(db)
     user = await user_service.get_user_by_email(body.email)
 
@@ -122,6 +152,11 @@ async def request_email(
 
 @router.post("/refresh-token", response_model=Token)
 async def new_token(request: TokenRefreshRequest, db: Session = Depends(get_db)):
+    """Issue a new access token using a valid refresh token.
+
+    :raises HTTPException: 401 if refresh token is invalid or expired.
+    :return: New access token and the same refresh token.
+    """
 
     user = await verify_refresh_token(request.refresh_token, db)
     if user is None:
@@ -144,6 +179,11 @@ async def request_password_reset(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Request a password reset email for a user.
+
+    If the user exists, a reset link with a token is sent by email.
+    The response is always generic for security reasons.
+    """
     user_service = UserService(db)
     user = await user_service.get_user_by_email(body.email)
 
@@ -161,6 +201,11 @@ async def reset_password(
     token: str,
     db: Session = Depends(get_db),
 ):
+    """Reset user password using a valid reset token.
+
+    :raises HTTPException: 400 if token is invalid or user is not found.
+    :return: Message that the password was successfully reset.
+    """
     try:
         email = await get_email_from_token(token)
     except HTTPException:

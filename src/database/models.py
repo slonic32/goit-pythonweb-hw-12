@@ -1,3 +1,5 @@
+"""SQLAlchemy ORM models for users and contacts."""
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -19,15 +21,21 @@ from enum import Enum
 
 
 class UserRole(str, Enum):
+    """Enum with available user roles."""
+
     USER = "user"
     ADMIN = "admin"
 
 
 class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy ORM models."""
+
     pass
 
 
 class Contact(Base):
+    """Contact entity stored in the database."""
+
     __tablename__ = "contacts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -44,6 +52,8 @@ class Contact(Base):
 
 
 class User(Base):
+    """User entity stored in the database."""
+
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     username = Column(String(100), unique=True)

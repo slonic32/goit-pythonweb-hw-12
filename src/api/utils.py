@@ -1,3 +1,5 @@
+"""Utility API routes."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -9,8 +11,13 @@ router = APIRouter(tags=["utils"])
 
 @router.get("/healthchecker")
 async def healthchecker(db: AsyncSession = Depends(get_db)):
+    """Health check endpoint.
+
+    Verifies that the application can connect to the database.
+    Returns HTTP 500 if the database is not configured correctly.
+    """
     try:
-        # Виконуємо асинхронний запит
+
         result = await db.execute(text("SELECT 1"))
         result = result.scalar_one_or_none()
 

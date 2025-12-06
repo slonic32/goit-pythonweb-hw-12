@@ -1,3 +1,8 @@
+"""Contacts API routes.
+
+Provides CRUD operations for contacts and an endpoint to get upcoming birthdays.
+"""
+
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +26,10 @@ async def read_contacts(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Get a list of contacts for the current user.
+
+    Supports pagination and optional filtering by first name, last name and email.
+    """
     contact_service = ContactService(db)
     contacts = await contact_service.get_contacts(
         user=user,
@@ -38,6 +47,7 @@ async def upcoming_birthdays(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Get contacts whose birthdays are in the next 7 days."""
     contact_service = ContactService(db)
     contacts = await contact_service.get_upcoming_birthdays(user, days=7)
     return ContactsGet(data=contacts)
@@ -49,6 +59,10 @@ async def read_contact(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Get a single contact by ID for the current user.
+
+    :raises HTTPException: 404 if contact is not found.
+    """
     contact_service = ContactService(db)
     contact = await contact_service.get_contact(user, contact_id)
     if contact is None:
@@ -65,6 +79,7 @@ async def create_contact(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Create a new contact belonging to the current user."""
     contact_service = ContactService(db)
     return await contact_service.create_contact(user, body)
 
@@ -76,6 +91,10 @@ async def update_contact(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Partially update a contact for the current user.
+
+    :raises HTTPException: 404 if contact is not found.
+    """
     contact_service = ContactService(db)
     contact = await contact_service.update_contact(user, contact_id, body)
     if contact is None:
@@ -92,6 +111,10 @@ async def remove_contact(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Delete a contact for the current user.
+
+    :raises HTTPException: 404 if contact is not found.
+    """
     contact_service = ContactService(db)
     contact = await contact_service.remove_contact(user, contact_id)
     if contact is None:

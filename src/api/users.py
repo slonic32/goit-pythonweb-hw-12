@@ -1,3 +1,8 @@
+"""User-related API routes.
+
+Provides endpoints for reading current user info and updating avatar.
+"""
+
 from fastapi import APIRouter, Depends, UploadFile, File, Request
 from src.schemas import User
 from src.services.auth import get_current_user, get_current_admin_user
@@ -22,6 +27,10 @@ limiter = Limiter(key_func=get_remote_address)
 )
 @limiter.limit("10/minute")
 async def me(request: Request, user: User = Depends(get_current_user)):
+    """Return the currently authenticated user.
+
+    This endpoint is rate-limited to avoid abuse.
+    """
     return user
 
 
@@ -31,6 +40,11 @@ async def update_avatar_user(
     user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Update avatar for the current admin user.
+
+    The file is uploaded to Cloudinary and the avatar URL is stored in the database.
+    Only users with the 'admin' role are allowed to call this endpoint.
+    """
     avatar_url = UploadFileService(
         settings.CLD_NAME, settings.CLD_API_KEY, settings.CLD_API_SECRET
     ).upload_file(file, user.username)

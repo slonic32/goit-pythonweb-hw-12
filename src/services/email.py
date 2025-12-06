@@ -1,3 +1,5 @@
+"""Email service for sending verification and password reset emails."""
+
 from pathlib import Path
 
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
@@ -23,6 +25,10 @@ conf = ConnectionConfig(
 
 
 async def send_email(email: EmailStr, username: str, host: str):
+    """Send an email confirmation message to the user.
+
+    The email contains a verification link with a signed token.
+    """
     try:
         token_verification = create_email_token({"sub": email})
         message = MessageSchema(
@@ -43,6 +49,11 @@ async def send_email(email: EmailStr, username: str, host: str):
 
 
 async def send_reset_password_email(email: EmailStr, username: str, host: str):
+    """Send a password reset email to the user.
+
+    The email contains a token that can be used to reset the password
+    via the /api/auth/reset_password endpoint.
+    """
     try:
         token_verification = create_email_token({"sub": email})
         message = MessageSchema(

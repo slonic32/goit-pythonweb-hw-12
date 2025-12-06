@@ -1,3 +1,5 @@
+"""Repository layer for working with Contact entities."""
+
 from typing import List
 
 from sqlalchemy import select
@@ -8,6 +10,8 @@ from src.schemas import ContactCreate, ContactUpdate
 
 
 class ContactRepository:
+    """Provide CRUD operations for contacts using an async database session."""
+
     def __init__(self, session: AsyncSession):
         self.db = session
 
@@ -20,7 +24,10 @@ class ContactRepository:
         last_name: str | None = None,
         email: str | None = None,
     ) -> List[Contact]:
-        stmt = select(Contact).filter_by(user=user).offset(skip).limit(limit)
+        """Get a list of contacts for a given user with optional filters."""
+        stmt = (
+            select(Contact).where(Contact.user_id == user.id).offset(skip).limit(limit)
+        )
 
         if first_name:
             stmt = stmt.where(Contact.first_name.ilike(f"%{first_name}%"))
@@ -33,18 +40,31 @@ class ContactRepository:
         return result.scalars().all()
 
     async def get_contact_by_id(self, user: User, contact_id: int) -> Contact | None:
-        stmt = select(Contact).filter_by(user=user, id=contact_id)
+        """Get a single contact by its ID for the given user."""
+        stmt = select(Contact).where(
+            Contact.user_id == user.id, Contact.id == contact_id
+        )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def create_contact(self, user: User, body: ContactCreate) -> Contact:
-        contact = Contact(**body.model_dump(exclude_unset=True), user=user)
+        """Create a new contact for the given user."""
+        contact_data = body.model_dump(exclude_unset=True)
+
+        contact = Contact(
+            **contact_data,
+            user_id=user.id,
+        )
         self.db.add(contact)
         await self.db.commit()
         await self.db.refresh(contact)
         return await self.get_contact_by_id(user, contact.id)
 
     async def remove_contact(self, user: User, contact_id: int) -> Contact | None:
+        """Delete a contact by ID for the given user.
+
+        :return: Deleted contact or None if not found.
+        """
         contact = await self.get_contact_by_id(user, contact_id)
         if contact:
             await self.db.delete(contact)
@@ -54,6 +74,7 @@ class ContactRepository:
     async def update_contact(
         self, user: User, contact_id: int, body: ContactUpdate
     ) -> Contact | None:
+        """Update fields of an existing contact for the given user."""
         contact = await self.get_contact_by_id(user, contact_id)
         if contact:
             for key, value in body.model_dump(exclude_unset=True).items():
@@ -65,6 +86,7 @@ class ContactRepository:
         return contact
 
     async def get_all_contacts(self, user: User) -> List[Contact]:
-
-        result = await self.db.execute(select(Contact).filter_by(user=user))
+        """Get all contacts belonging to the given user."""
+        stmt = select(Contact).where(Contact.user_id == user.id)
+        result = await self.db.execute(stmt)
         return result.scalars().all()

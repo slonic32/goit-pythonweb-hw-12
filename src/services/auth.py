@@ -1,3 +1,9 @@
+"""Authentication and authorization service functions.
+
+Contains helpers for password hashing, JWT token creation and retrieving
+current user from access token.
+"""
+
 from datetime import datetime, timedelta, UTC
 from typing import Optional, Literal
 
@@ -22,6 +28,8 @@ import json
 
 
 class Hash:
+    """Utility class for hashing and verifying passwords using bcrypt."""
+
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     def verify_password(self, plain_password, hashed_password):
@@ -38,6 +46,7 @@ oauth2_scheme = HTTPBearer()
 def create_token(
     data: dict, expires_delta: timedelta, token_type: Literal["access", "refresh"]
 ):
+    """Create a signed JWT token with expiration and token type."""
     to_encode = data.copy()
     now = datetime.now(UTC)
     expire = now + expires_delta
@@ -50,6 +59,7 @@ def create_token(
 
 # define a function to generate a new access token
 async def create_access_token(data: dict, expires_delta: Optional[float] = None):
+    """Create an access JWT token for the given payload."""
     if expires_delta:
         access_token = create_token(data, expires_delta, "access")
     else:
@@ -60,6 +70,7 @@ async def create_access_token(data: dict, expires_delta: Optional[float] = None)
 
 
 async def create_refresh_token(data: dict, expires_delta: Optional[float] = None):
+    """Create a refresh JWT token for the given payload."""
     if expires_delta:
         refresh_token = create_token(data, expires_delta, "refresh")
     else:
@@ -73,6 +84,11 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
+    """Retrieve the current user from the Authorization header.
+
+    The user is first loaded from Redis cache if available, otherwise from
+    the database. Raises HTTP 401 if the token is invalid.
+    """
     token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -126,6 +142,7 @@ async def get_current_user(
 
 
 def create_email_token(data: dict):
+    """Create a JWT token used for email verification or password reset."""
     to_encode = data.copy()
     expire = datetime.now(UTC) + timedelta(days=7)
     to_encode.update({"iat": datetime.now(UTC), "exp": expire})
@@ -134,6 +151,10 @@ def create_email_token(data: dict):
 
 
 async def get_email_from_token(token: str):
+    """Decode email address from a verification or reset token.
+
+    :raises HTTPException: 422 if token is invalid.
+    """
     try:
         payload = jwt.decode(
             token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
@@ -148,6 +169,10 @@ async def get_email_from_token(token: str):
 
 
 async def verify_refresh_token(refresh_token: str, db: Session = Depends(get_db)):
+    """Validate refresh token and return the associated user if valid.
+
+    :return: User instance or None if refresh token is invalid.
+    """
     try:
         payload = jwt.decode(
             refresh_token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
@@ -172,6 +197,10 @@ async def verify_refresh_token(refresh_token: str, db: Session = Depends(get_db)
 
 
 async def get_current_admin_user(current_user: User = Depends(get_current_user)):
+    """Ensure that the current user has the admin role.
+
+    :raises HTTPException: 403 if user is not an admin.
+    """
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Insufficient access rights")
     return current_user
